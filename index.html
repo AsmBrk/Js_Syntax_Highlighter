@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <title>JS Syntax Highlighter</title>
+ <style>
+  body {
+    font-family: 'Fira Mono', 'Consolas', 'Menlo', monospace;
+    background: #e9e3ce;
+    color: #232323;
+    padding: 40px;
+  }
+  #editor {
+    background: #fffbe9;
+    padding: 16px;
+    min-height: 220px;
+    border: 1.5px solid #bdb49a;
+    border-radius: 8px;
+    outline: none;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: 1.1em;
+    box-shadow: 0 2px 12px #0002;
+    transition: border 0.2s;
+    color: #232323;
+  }
+  #editor:focus {
+    border-color: #569CD6;
+  }
+  .token.keyword { color: #3b5ea7; font-weight: bold; }
+  .token.number  { color: #6b8e23; }
+  .token.string  { color: #b86b2a; }
+  .token.comment { color: #7d7d7d; font-style: italic; }
+  .token.identifier { color: #2d6a4f; }
+  .token.operator     { color: #b80000; }
+  .token.punctuation  { color: #7c6f57; }
+  .token.boolean      { color: #b8860b; font-weight: bold; }
+  .token.null         { color: #808080; font-style: italic; }
+  #error {
+    color: #b80000;
+    margin-top: 18px;
+    min-height: 28px;
+    font-size: 1em;
+    background: #fff2e2;
+    border-left: 4px solid #b80000;
+    padding: 10px 16px;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px #0001;
+  }
+</style>
+</head>
+<body>
+
+<h2>JavaScript Syntax Highlighter</h2>
+<div id="editor" contenteditable="true" spellcheck="false"></div>
+<div id="error"></div>
+
+<script>
+const grammar = {
+  "Program": [["StatementList"]],
+  "StatementList": [["Statement", "StatementList"], ["Statement"]],
+  "Statement": [
+    ["VariableDeclaration"],
+    ["ExpressionStatement"],
+    ["BlockStatement"],
+    ["IfStatement"],
+    ["WhileStatement"],
+    ["FunctionDeclaration"]
+  ],
+  "VariableDeclaration": [["KEYWORD", "IDENTIFIER", "=", "Expression"]],
+  "ExpressionStatement": [["Expression"]],
+  "BlockStatement": [["{", "StatementList", "}"]],
+  "IfStatement": [["KEYWORD", "(", "Expression", ")", "BlockStatement", "ElseClause"]],
+  "ElseClause": [["KEYWORD", "BlockStatement"], []],
+  "WhileStatement": [["KEYWORD", "(", "Expression", ")", "BlockStatement"]],
+  "FunctionDeclaration": [["KEYWORD", "IDENTIFIER", "(", "ParameterList", ")", "BlockStatement"]],
+  "ParameterList": [["IDENTIFIER", ",", "ParameterList"], ["IDENTIFIER"], []],
+  "Expression": [["Term", "Expression'"]],
+  "Expression'": [["OPERATOR", "Term", "Expression'"], []],
+  "Term": [["IDENTIFIER"], ["NUMBER"], ["STRING"], ["BOOLEAN"], ["(", "Expression", ")"]],
+};
+
+const patterns = [
+  { type: 'comment',    regex: /\/\/.*/y },
+  { type: 'string',     regex: /(["'`])(?:\\.|[^\\])*?\1/y },
+  { type: 'number',     regex: /\b\d+(\.\d+)?\b/y },
+  { type: 'keyword',    regex: /\b(if|else|for|while|return|function|let|const|var|break|continue)\b/y },
+  { type: 'boolean',    regex: /\b(true|false)\b/y },
+  { type: 'null',       regex: /\b(null|undefined)\b/y },
+  { type: 'operator',   regex: /[+\-*/=!<>%&|^~]+/y },
+  { type: 'punctuation',regex: /[{}()[\];,.]/y },
+  { type: 'identifier', regex: /\b[a-zA-Z_]\w*\b/y },
+];
+
+function escapeHtml(str) {
+  return str.replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+}
+
+function tokenize(code) {
+  const tokens = [];
+  let cursor = 0;
+  while (cursor < code.length) {
+    let matched = false;
+    for (const {type, regex} of patterns) {
+      regex.lastIndex = cursor;
+      const match = regex.exec(code);
+      if (match && match.index === cursor) {
+        tokens.push({type, value: match[0]});
+        cursor += match[0].length;
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      // Boşluk veya bilinmeyen karakter
+      if (!/\s/.test(code[cursor])) {
+        tokens.push({type: "unknown", value: code[cursor]});
+      }
+      cursor++;
+    }
+  }
+  return tokens;
+}
+
+class Parser {
+  constructor(tokens) {
+    this.tokens = tokens;
+    this.pos = 0;
+    this.errors = [];
+  }
+
+  current() {
+    return this.tokens[this.pos];
+  }
+  next() {
+    return this.tokens[this.pos++];
+  }
+  expect(type, value) {
+    const token = this.next();
+    if (!token || token.type !== type || (value && token.value !== value)) {
+      this.errors.push(`Parse error: '${value || type}' bekleniyordu.`);
+      return false;
+    }
+    return true;
+  }
+
+  parseVarDecl(expectSemicolon = true) {
+    if (this.current() && this.current().type === "keyword" && ["let","const","var"].includes(this.current().value)) {
+      this.next();
+      if (!this.expect("identifier")) return false;
+      if (this.current() && this.current().type === "operator" && this.current().value === "=") {
+        this.next();
+        this.parseExpression();
+      }
+      if (expectSemicolon) {
+        if (!this.expect("punctuation", ";")) return false;
+      }
+      return true;
+    }
+    return false;
+  }
+
+ parseAssignment(expectSemicolon = true) {
+  if (this.current() && this.current().type === "identifier") {
+    const startPos = this.pos;
+    this.next();
+    if (this.current() && this.current().type === "operator" && this.current().value === "=") {
+      this.next();
+      if (!this.parseExpression()) return false;
+      if (expectSemicolon) {
+        if (!this.expect("punctuation", ";")) return false;
+      }
+      return true;
+    }
+    // Eğer atama değilse, pozisyonu geri al
+    this.pos = startPos;
+  }
+  return false;
+}
+
+ parseExpression() {
+  // Unary operator desteği (!, -)
+  if (
+    this.current() &&
+    this.current().type === "operator" &&
+    (this.current().value === "-" || this.current().value === "!")
+  ) {
+    this.next();
+    if (!this.parseExpression()) return false;
+    return true;
+  }
+  if (this.current() && ["number","string","identifier","boolean"].includes(this.current().type)) {
+    this.next();
+    // Fonksiyon çağrısı desteği
+    while (this.current() && this.current().type === "punctuation" && this.current().value === "(") {
+      this.next();
+      // Parametreleri parse et (basit, virgül ile ayrılmış ifadeler)
+      if (this.current() && this.current().type !== "punctuation" && this.current().value !== ")") {
+        if (!this.parseExpression()) return false;
+        while (this.current() && this.current().type === "punctuation" && this.current().value === ",") {
+          this.next();
+          if (!this.parseExpression()) return false;
+        }
+      }
+      if (!this.expect("punctuation", ")")) return false;
+    }
+    // Operatörlerle devam edebilir
+    while (this.current() && this.current().type === "operator") {
+      this.next();
+      if (this.current() && ["number","string","identifier","boolean"].includes(this.current().type)) {
+        this.next();
+      } else if (this.current() && this.current().type === "punctuation" && this.current().value === "(") {
+        // Fonksiyon çağrısı zincirleme
+        this.next();
+        if (this.current() && this.current().type !== "punctuation" && this.current().value !== ")") {
+          if (!this.parseExpression()) return false;
+          while (this.current() && this.current().type === "punctuation" && this.current().value === ",") {
+            this.next();
+            if (!this.parseExpression()) return false;
+          }
+        }
+        if (!this.expect("punctuation", ")")) return false;
+      } else {
+        this.errors.push("Geçersiz ifade.");
+        return false;
+      }
+    }
+    return true;
+  }
+  if (this.current() && this.current().type === "punctuation" && this.current().value === "(") {
+    this.next();
+    if (!this.parseExpression()) return false;
+    if (!this.expect("punctuation", ")")) return false;
+    return true;
+  }
+  this.errors.push("Geçersiz ifade.");
+  return false;
+}
+
+
+  parseReturnStatement() {
+    if (this.current() && this.current().type === "keyword" && this.current().value === "return") {
+      this.next();
+      if (this.current() && !(this.current().type === "punctuation" && this.current().value === ";")) {
+        if (!this.parseExpression()) return false;
+      }
+      if (!this.expect("punctuation", ";")) return false;
+      return true;
+    }
+    return false;
+  }
+
+  parseIfStatement() {
+    if (this.current() && this.current().type === "keyword" && this.current().value === "if") {
+      this.next();
+      if (!this.expect("punctuation", "(")) return false;
+      if (!this.parseExpression()) return false;
+      if (!this.expect("punctuation", ")")) return false;
+      if (!this.parseBlock()) return false;
+      if (this.current() && this.current().type === "keyword" && this.current().value === "else") {
+        this.next();
+        if (!this.parseBlock()) return false;
+      }
+      return true;
+    }
+    return false;
+  }
+
+  parseBlock() {
+    if (this.current() && this.current().type === "punctuation" && this.current().value === "{") {
+      this.next();
+      while (this.current() && !(this.current().type === "punctuation" && this.current().value === "}")) {
+        if (!this.parseStatement()) {
+          this.errors.push("Blok içinde geçersiz ifade.");
+          while (this.current() && !(this.current().type === "punctuation" && this.current().value === "}")) {
+            this.next();
+          }
+          break;
+        }
+      }
+      if (!this.expect("punctuation", "}")) return false;
+      return true;
+    }
+    return false;
+  }
+
+  parseWhileStatement() {
+    if (this.current() && this.current().type === "keyword" && this.current().value === "while") {
+      this.next();
+      if (!this.expect("punctuation", "(")) return false;
+      if (!this.parseExpression()) return false;
+      if (!this.expect("punctuation", ")")) return false;
+      if (!this.parseBlock()) return false;
+      return true;
+    }
+    return false;
+  }
+
+  parseForStatement() {
+    if (this.current() && this.current().type === "keyword" && this.current().value === "for") {
+      this.next();
+      if (!this.expect("punctuation", "(")) return false;
+      if (this.current() && !(this.current().type === "punctuation" && this.current().value === ";")) {
+        if (!this.parseVarDecl(false) && !this.parseAssignment(false) && !this.parseExpression()) {
+        }
+      }
+      if (!this.expect("punctuation", ";")) return false;
+      if (this.current() && !(this.current().type === "punctuation" && this.current().value === ";")) {
+        if (!this.parseExpression()) {
+        }
+      }
+      if (!this.expect("punctuation", ";")) return false;
+      if (this.current() && !(this.current().type === "punctuation" && this.current().value === ")")) {
+        if (!this.parseAssignment(false) && !this.parseExpression()) {
+        }
+      }
+      if (!this.expect("punctuation", ")")) return false;
+     if (!this.parseBlock() && !this.parseStatement()) return false;
+      return true;
+    }
+    return false;
+  }
+
+  parseBreakStatement() {
+  if (this.current() && this.current().type === "keyword" && this.current().value === "break") {
+    this.next();
+    if (!this.expect("punctuation", ";")) return false;
+    return true;
+  }
+  return false;
+}
+
+parseContinueStatement() {
+  if (this.current() && this.current().type === "keyword" && this.current().value === "continue") {
+    this.next();
+    if (!this.expect("punctuation", ";")) return false;
+    return true;
+  }
+  return false;
+}
+  parseFunctionDeclaration() {
+    if (this.current() && this.current().type === "keyword" && this.current().value === "function") {
+      this.next();
+      if (!this.expect("identifier")) return false;
+      if (!this.expect("punctuation", "(")) return false;
+      while (this.current() && this.current().type === "identifier") {
+        this.next();
+        if (this.current() && this.current().type === "punctuation" && this.current().value === ",") {
+          this.next();
+        } else {
+          break;
+        }
+      }
+      if (!this.expect("punctuation", ")")) return false;
+      if (!this.parseBlock()) return false;
+      return true;
+    }
+    return false;
+  }
+
+ 
+  parseStatement() {
+    return this.parseVarDecl() ||
+         this.parseAssignment() ||
+         this.parseReturnStatement() ||
+         this.parseBreakStatement() ||
+         this.parseContinueStatement() ||
+         this.parseIfStatement() ||
+         this.parseWhileStatement() ||
+         this.parseForStatement() ||
+         this.parseFunctionDeclaration() ||
+         this.parseBlock();
+  }
+
+  parseProgram() {
+    while (this.current()) {
+      const prevPos = this.pos;
+      if (!this.parseStatement()) {
+        this.errors.push(`Satırda sözdizimi hatası: '${this.current() ? this.current().value : "EOF"}'`);
+        this.next();
+        if (this.pos === prevPos) break;
+      }
+    }
+    return this.errors;
+  }
+}
+
+function highlightCode(code) {
+  const tokens = [];
+  let cursor = 0;
+  while (cursor < code.length) {
+    let matched = false;
+    for (const {type, regex} of patterns) {
+      regex.lastIndex = cursor;
+      const match = regex.exec(code);
+      if (match && match.index === cursor) {
+        tokens.push({type, value: match[0]});
+        cursor += match[0].length;
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      tokens.push({type: null, value: code[cursor]});
+      cursor++;
+    }
+  }
+
+  // Tokenları HTML'e çevir
+  return tokens.map(token => {
+    let safe = escapeHtml(token.value)
+      .replace(/ /g, '&nbsp;')
+      .replace(/\n/g, '<br>');
+    if (token.type) {
+      return `<span class="token ${token.type}">${safe}</span>`;
+    } else {
+      return safe;
+    }
+  }).join('');
+}
+
+const blockKeywords = ["if", "for", "while", "function", "else"];
+
+function checkErrors(code) {
+  const errors = [];
+  let parenStack = [];
+  let curlyStack = [];
+  let inBlockComment = false;
+  let declaredVars = new Set();
+  const validKeywords = [
+    "if","else","for","while","return","function","let","const","var","break","continue","true","false","null","undefined"
+  ];
+
+  // Parantez ve süslü parantez dengesi
+  for (let i = 0; i < code.length; i++) {
+    if (!inBlockComment && code[i] === '(') parenStack.push(i);
+    if (!inBlockComment && code[i] === ')') {
+      if (parenStack.length === 0) errors.push(`Fazladan kapalı parantez ')' (pozisyon: ${i + 1})`);
+      else parenStack.pop();
+    }
+    if (!inBlockComment && code[i] === '{') curlyStack.push(i);
+    if (!inBlockComment && code[i] === '}') {
+      if (curlyStack.length === 0) errors.push(`Fazladan kapalı süslü parantez '}' (pozisyon: ${i + 1})`);
+      else curlyStack.pop();
+    }
+    // Çok satırlı yorum başlangıcı
+    if (code[i] === '/' && code[i+1] === '*') inBlockComment = true;
+    // Çok satırlı yorum bitişi
+    if (inBlockComment && code[i] === '*' && code[i+1] === '/') {
+      inBlockComment = false;
+      i++;
+    }
+  }
+  if (parenStack.length > 0) errors.push(`Eksik kapalı parantez ')', ${parenStack.length} adet açıldı ama kapanmadı.`);
+  if (curlyStack.length > 0) errors.push(`Eksik kapalı süslü parantez '}', ${curlyStack.length} adet açıldı ama kapanmadı.`);
+  if (inBlockComment) errors.push("Çok satırlı yorum (/* ... */) kapanmamış");
+
+  // Satır satır gelişmiş kontroller
+  const lines = code.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+
+    // Kapanmamış string tespiti
+    const doubleQuotes = (line.match(/"/g) || []).length;
+    const singleQuotes = (line.match(/'/g) || []).length;
+    if (doubleQuotes % 2 === 1) errors.push(`Satır ${i+1}: Kapanmamış çift tırnak (")`);
+    if (singleQuotes % 2 === 1) errors.push(`Satır ${i+1}: Kapanmamış tek tırnak (')`);
+
+    // Yanlış anahtar kelime tespiti
+    const words = line.split(/\W+/);
+    for (const w of words) {
+      if (/^[a-zA-Z_]\w*$/.test(w) && w.length > 1 && w === w.toLowerCase()) {
+        if (!validKeywords.includes(w) && !declaredVars.has(w)) {
+          // Sadece anahtar kelimeye benziyorsa uyar
+          if (["iff","whle","fr","retrun","fucntion"].includes(w)) {
+            errors.push(`Satır ${i+1}: '${w}' yanlış anahtar kelime, doğrusu farklı olabilir.`);
+          }
+        }
+      }
+    }
+
+   // Tanımsız değişken tespiti (çok basit, let/const/var ile başlıyorsa tanımlı sayılır)
+if (/^(let|const|var)\s+([a-zA-Z_]\w*)/.test(line)) {
+  const m = /^(let|const|var)\s+([a-zA-Z_]\w*)/.exec(line);
+  declaredVars.add(m[2]);
+} else {
+  // Atama varsa ve değişken daha önce tanımlı değilse
+  const assign = /^([a-zA-Z_]\w*)\s*=/.exec(line);
+if (assign && !declaredVars.has(assign[1])) {
+  errors.push(`Satır ${i+1}: '${assign[1]}' değişkeni tanımlanmadan kullanılıyor.`);
+}
+}
+
+    // blockKeywords ile başlayıp { içermiyorsa uyarı ver
+    for (const kw of blockKeywords) {
+      if (
+        line.startsWith(kw) &&
+        !line.includes('{')
+      ) {
+        errors.push(`Satır ${i + 1}: '${kw}' ifadesinden sonra süslü parantez '{' eksik olabilir.`);
+      }
+    }
+    if (
+  line &&
+  !line.startsWith("//") &&
+  !line.endsWith(";") &&
+  !line.endsWith("{") &&
+  !line.endsWith("}") &&
+  !blockKeywords.some(kw => line.startsWith(kw)) &&
+  !/^case\s/.test(line) &&
+  !/^default\s*:/.test(line)
+) {
+  errors.push(`Satır ${i + 1}: Satır sonunda noktalı virgül (;) eksik olabilir.`);
+}
+  }
+
+  return errors;
+}
+
+const editor = document.getElementById('editor');
+const errorDiv = document.getElementById('error');
+
+editor.addEventListener('input', () => {
+  const text = editor.innerText;
+  const highlighted = highlightCode(text);
+  editor.innerHTML = highlighted;
+
+  // Hata kontrolü ve gösterimi
+  const errors = checkErrors(text);
+
+  // --- PARSER EKLE ---
+  const tokens = tokenize(text);
+  const parser = new Parser(tokens);
+  const parseErrors = parser.parseProgram();
+  // -------------------
+
+  // Hataları birleştir ve tekrarları kaldır
+  const allErrorsSet = new Set([...errors, ...parseErrors]);
+  const allErrors = Array.from(allErrorsSet);
+
+  if (allErrors.length > 0) {
+    errorDiv.innerHTML = "<ul style='margin:0; padding-left:20px'>" +
+      allErrors.map(e => `<li>${e}</li>`).join('') + "</ul>";
+  } else {
+    errorDiv.textContent = "";
+  }
+
+  placeCaretAtEnd(editor);
+});
+
+function placeCaretAtEnd(el) {
+  el.focus();
+  if (typeof window.getSelection != "undefined"
+      && typeof document.createRange != "undefined") {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    range.collapse(false);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+}
+</script>
+</body>
+</html>
