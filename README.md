@@ -65,7 +65,7 @@ Bu proje, JavaScript benzeri bir sözdizimine sahip kodları *gerçek zamanlı o
 - contenteditable alanı sayesinde kod yazımı
 - Gerçek zamanlı renkli vurgulama
 - Hatalar kullanıcıya altta kutu içerisinde gösterilir
-- Kopyala-yapıştır veya yazım sırasında otomatik güncelleme
+
 
 
 [Proje raporuna ulaşmak için tıklayabilirsiniz](https://github.com/AsmBrk/Js_Syntax_Highlighter/blob/main/RAPOR.pdf)
