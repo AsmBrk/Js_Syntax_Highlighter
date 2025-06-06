@@ -36,7 +36,7 @@ Bu proje, JavaScript benzeri bir sözdizimine sahip kodları *gerçek zamanlı o
   - comment → Tek satırlık yorumlar //
   - boolean, null → true, false, null, undefined
 
-     ![Oyun Ekranı](img/ss1.jpg)
+     ![Oyun Ekranı](images/ss1.jpg)
 
 ### 📚 Syntax Analysis (Parser)
 - *Yaklaşım:* Recursive descent parser (Top-down)
@@ -47,7 +47,7 @@ Bu proje, JavaScript benzeri bir sözdizimine sahip kodları *gerçek zamanlı o
   - return, break, continue deyimleri
 - *Hatalı ifadeler*: detaylı biçimde işlenir ve kullanıcıya açıklanır
 
-    ![Oyun Ekranı](img/ss2.jpg)
+    ![Oyun Ekranı](images/ss2.jpg)
 
 ### 💡 Hata Denetimi
 - Parantez dengesi ( (), {} )
@@ -57,7 +57,7 @@ Bu proje, JavaScript benzeri bir sözdizimine sahip kodları *gerçek zamanlı o
 - Eksik noktalı virgül ;
 - if, for, while gibi blok ifadelerinde eksik {} kontrolü
 
-  ![Oyun Ekranı](img/ss3.jpg)
+  ![Oyun Ekranı](images/ss3.jpg)
       
 
 ### 🖼 GUI Özellikleri
