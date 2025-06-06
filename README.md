@@ -68,7 +68,7 @@ Bu proje, JavaScript benzeri bir sözdizimine sahip kodları *gerçek zamanlı o
 - Kopyala-yapıştır veya yazım sırasında otomatik güncelleme
 
 
-[Proje raporuna ulaşmak için tıklayabilirsiniz](https://github.com/Samierz/Syntax-Higlighter/blob/main/proje%20raporu.pdf)
+[Proje raporuna ulaşmak için tıklayabilirsiniz](https://github.com/AsmBrk/Js_Syntax_Highlighter/blob/main/RAPOR.pdf)
 
 [Proje için yazdığım makaleyi okumak için tıklayabilirsiniz](https://medium.com/@03asmbrk1907/javascript-syntax-highlighter-087df1f112b4)
 
