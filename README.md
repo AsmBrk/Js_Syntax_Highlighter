@@ -4,7 +4,7 @@
 
 Bu proje, JavaScript benzeri bir sözdizimine sahip kodları *gerçek zamanlı olarak analiz edip renklendiren (syntax highlighting)* ve *hataları tespit eden* etkileşimli bir web uygulamasıdır. Proje; *lexical analiz, **parser (sözdizimi çözümleyici), **hata kontrol mekanizması* ve *kullanıcı dostu GUI* bileşenlerini tamamen *kütüphane kullanmadan* kendi içerisinde barındırır.
 
-[Projeyi canlı  denemek için tıklayabilirsiniz](https://samierz.github.io/Syntax-Higlighter/)
+[Projeyi canlı  denemek için tıklayabilirsiniz](https://asmbrk.github.io/Js_Syntax_Highlighter/)
 
 
 ---
