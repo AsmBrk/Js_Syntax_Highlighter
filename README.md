@@ -72,4 +72,4 @@ Bu proje, JavaScript benzeri bir sözdizimine sahip kodları *gerçek zamanlı o
 
 [Proje için yazdığım makaleyi okumak için tıklayabilirsiniz](https://medium.com/@03asmbrk1907/javascript-syntax-highlighter-087df1f112b4)
 
-[Projenin demo videosunu izlemek için tıklayabilirsiniz](https://youtu.be/extn2HDl6Bk)
+[Projenin demo videosunu izlemek için tıklayabilirsiniz](https://www.youtube.com/watch?v=GGvk0aUdXzc)
