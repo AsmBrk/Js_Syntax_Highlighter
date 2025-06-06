@@ -70,6 +70,6 @@ Bu proje, JavaScript benzeri bir sözdizimine sahip kodları *gerçek zamanlı o
 
 [Proje raporuna ulaşmak için tıklayabilirsiniz](https://github.com/Samierz/Syntax-Higlighter/blob/main/proje%20raporu.pdf)
 
-[Proje için yazdığım makaleyi okumak için tıklayabilirsiniz](https://medium.com/@samierznc/real-time-syntax-highlighter-leksikal-analiz-ve-parsing-ile-kod-renklendirme-6ea509368121)
+[Proje için yazdığım makaleyi okumak için tıklayabilirsiniz](https://medium.com/@03asmbrk1907/javascript-syntax-highlighter-087df1f112b4)
 
 [Projenin demo videosunu izlemek için tıklayabilirsiniz](https://youtu.be/extn2HDl6Bk)
